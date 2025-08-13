@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: SETRAG Tracking API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /positions:
+    get:
+      summary: Liste des dernières positions connues
+      responses:
+        '200':
+          description: Liste des positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainPosition'
+    post:
+      summary: Ingestion de positions multiples
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                positions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TrainPosition'
+      responses:
+        '200':
+          description: Positions ingérées
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainPosition'
+  /position:
+    post:
+      summary: Ingestion d'une position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainPosition'
+      responses:
+        '200':
+          description: Position ingérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainPosition'
+  /trains/{trainId}/position:
+    get:
+      summary: Récupérer la dernière position d'un train
+      parameters:
+        - in: path
+          name: trainId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Position du train
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainPosition'
+        '404':
+          description: Non trouvé
+components:
+  schemas:
+    TrainPosition:
+      type: object
+      properties:
+        train_id:
+          type: string
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        speed_kmh:
+          type: number
+          format: float
+          nullable: true
+        bearing_deg:
+          type: number
+          format: float
+          nullable: true
+        timestamp_utc:
+          type: string
+          format: date-time
+
+

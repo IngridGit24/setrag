@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: SETRAG Pricing & Booking API (draft)
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /price/quote:
+    post:
+      summary: Obtenir un prix pour un trajet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trip_id: { type: string }
+                passengers: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_amount: { type: number }
+                  currency: { type: string }
+  /booking:
+    post:
+      summary: Créer une réservation (PNR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trip_id: { type: string }
+                passengers: { type: integer, minimum: 1 }
+                payment_token: { type: string }
+      responses:
+        '201': { description: Créé }
+
+
