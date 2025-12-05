@@ -5,10 +5,10 @@ export type User = {
   role: string
 }
 
-const API_BASE = 'http://localhost:8104'
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
 
 export function getUsersBaseUrl(): string {
-  return import.meta.env.VITE_USERS_URL ?? 'http://localhost:8104'
+  return import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
 }
 
 export function getToken(): string | null {
@@ -32,12 +32,12 @@ export async function login(email: string, password: string): Promise<string> {
     body: new URLSearchParams({
       username: email,
       password: password,
-      grant_type: 'password',
     }),
   })
 
   if (!response.ok) {
-    throw new Error('Identifiants invalides')
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error || 'Identifiants invalides')
   }
 
   const data = await response.json()

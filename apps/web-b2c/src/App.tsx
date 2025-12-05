@@ -28,15 +28,15 @@ export default function App() {
   const [quote, setQuote] = useState<{ total_amount: number; currency: string } | null>(null)
   const [pnr, setPnr] = useState<{ pnr: string; amount: number; currency: string } | null>(null)
 
-  const trackingBaseUrl = useMemo(() => {
-    return import.meta.env.VITE_TRACKING_URL ?? 'http://localhost:8001'
+  const apiBase = useMemo(() => {
+    return import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
   }, [])
 
   useEffect(() => {
     let closed = false
     async function load() {
       try {
-        const res = await fetch(`${trackingBaseUrl}/positions`)
+        const res = await fetch(`${apiBase}/positions`)
         if (!res.ok) return
         const data: TrainPositionLocal[] = await res.json()
         if (!closed) setPositions(data)
@@ -44,7 +44,7 @@ export default function App() {
     }
     load()
     return () => { closed = true }
-  }, [trackingBaseUrl])
+  }, [apiBase])
 
   useEffect(() => {
     const t = getToken()
@@ -56,24 +56,21 @@ export default function App() {
     listTrips().then(setTrips).catch(() => {})
   }, [])
 
+  // WebSocket disabled for now - Laravel requires Reverb for WebSocket support
+  // Using polling instead
   useEffect(() => {
-    const wsUrl = deriveWsUrl(trackingBaseUrl)
-    const ws = new WebSocket(wsUrl)
-    ws.onopen = () => setWsConnected(true)
-    ws.onclose = () => setWsConnected(false)
-    ws.onerror = () => setWsConnected(false)
-    ws.onmessage = (evt) => {
+    const interval = setInterval(async () => {
       try {
-        const p: TrainPositionLocal = JSON.parse(evt.data)
-        setPositions((prev) => {
-          const map = new Map(prev.map((x) => [x.train_id, x]))
-          map.set(p.train_id, p)
-          return Array.from(map.values()).sort((a, b) => a.train_id.localeCompare(b.train_id))
-        })
+        const res = await fetch(`${apiBase}/positions`)
+        if (res.ok) {
+          const data: TrainPositionLocal[] = await res.json()
+          setPositions(data)
+        }
       } catch {}
-    }
-    return () => ws.close()
-  }, [trackingBaseUrl])
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [apiBase])
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
@@ -93,8 +90,8 @@ export default function App() {
           </form>
         )}
       </div>
-      <p style={{ color: wsConnected ? 'green' : 'gray' }}>
-        WebSocket: {wsConnected ? 'connecté' : 'déconnecté'}
+      <p style={{ color: 'green' }}>
+        Mise à jour automatique toutes les 5 secondes
       </p>
       <div style={{ marginTop: 16 }}>
         <MapView positions={positions} />
@@ -141,11 +138,11 @@ export default function App() {
           ))}
         </select>
         <button disabled={!selectedTrip} onClick={async () => { if (!selectedTrip) return; await seedSeats(selectedTrip, 50) }}>Initialiser sièges</button>
-        <button disabled={!selectedTrip} onClick={async () => { if (!selectedTrip) return; const q = await quotePrice(selectedTrip, 1); setQuote(q) }}>Devis</button>
-        <button disabled={!selectedTrip} onClick={async () => { if (!selectedTrip) return; const b = await createBooking(selectedTrip, 1, `ui-${Date.now()}`); setPnr(b) }}>Réserver</button>
+        <button disabled={!selectedTrip} onClick={async () => { if (!selectedTrip) return; const q = await quotePrice({ trip_id: selectedTrip, passengers: 1 }); setQuote(q) }}>Devis</button>
+        <button disabled={!selectedTrip} onClick={async () => { if (!selectedTrip) return; const b = await createBooking({ trip_id: selectedTrip, passenger_name: 'Test', passenger_email: 'test@test.com' }); setPnr(b) }}>Réserver</button>
       </div>
       {quote && (
-        <p>Devis: {quote.total_amount} {quote.currency}</p>
+        <p>Devis: {quote.total_price} {quote.currency}</p>
       )}
       {pnr && (
         <p>Réservation confirmée: PNR {pnr.pnr} – {pnr.amount} {pnr.currency}</p>

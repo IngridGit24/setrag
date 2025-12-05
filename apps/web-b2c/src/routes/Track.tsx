@@ -23,7 +23,8 @@ export default function Track() {
   const fetchPositions = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8001/positions')
+      const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+      const response = await fetch(`${apiBase}/positions`)
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des positions')
       }

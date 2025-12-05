@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listStations, listTrips, seedSeats, quotePrice, createBooking } from '../api'
+import { listStations, listTrips, seedSeats, listSeats, quotePrice, createBooking } from '../api'
 import { getToken } from '../auth'
 import Header from '../components/Header'
 
@@ -136,9 +136,8 @@ export default function Book() {
       await seedSeats(trip.id)
       
       // Get available seats
-      const seatsData = await fetch(`http://localhost:8105/trips/${trip.id}/seats`)
-      const seatsJson = await seatsData.json()
-      setSeats(seatsJson)
+      const seatsData = await listSeats(trip.id)
+      setSeats(seatsData)
     } catch (error) {
       console.error('Erreur chargement sièges:', error)
     }

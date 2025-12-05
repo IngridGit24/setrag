@@ -1,5 +1,5 @@
-const INVENTORY_BASE = 'http://localhost:8105'
-const PRICING_BASE = 'http://localhost:8106'
+// Laravel API base URL
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
 
 export interface Station {
   id: number
@@ -35,7 +35,7 @@ export interface BookingResponse {
 }
 
 export async function listStations(): Promise<Station[]> {
-  const response = await fetch(`${INVENTORY_BASE}/stations`)
+  const response = await fetch(`${API_BASE}/stations`)
   if (!response.ok) {
     throw new Error('Erreur lors du chargement des stations')
   }
@@ -43,7 +43,7 @@ export async function listStations(): Promise<Station[]> {
 }
 
 export async function createStation(station: Omit<Station, 'id'>): Promise<Station> {
-  const response = await fetch(`${INVENTORY_BASE}/stations`, {
+  const response = await fetch(`${API_BASE}/stations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export async function createStation(station: Omit<Station, 'id'>): Promise<Stati
 }
 
 export async function listTrips(): Promise<Trip[]> {
-  const response = await fetch(`${INVENTORY_BASE}/trips`)
+  const response = await fetch(`${API_BASE}/trips`)
   if (!response.ok) {
     throw new Error('Erreur lors du chargement des voyages')
   }
@@ -65,7 +65,7 @@ export async function listTrips(): Promise<Trip[]> {
 }
 
 export async function createTrip(trip: Omit<Trip, 'id'>): Promise<Trip> {
-  const response = await fetch(`${INVENTORY_BASE}/trips`, {
+  const response = await fetch(`${API_BASE}/trips`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -79,20 +79,28 @@ export async function createTrip(trip: Omit<Trip, 'id'>): Promise<Trip> {
 }
 
 export async function seedSeats(tripId: number, numSeats: number = 50): Promise<void> {
-  const response = await fetch(`${INVENTORY_BASE}/trips/${tripId}/seats/seed`, {
+  const response = await fetch(`${API_BASE}/trips/${tripId}/seats/seed`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ num_seats: numSeats }),
+    body: JSON.stringify({ count: numSeats }),
   })
   if (!response.ok) {
     throw new Error('Erreur lors de l\'initialisation des sièges')
   }
 }
 
-export async function quotePrice(request: { trip_id: number; seat_no: string }): Promise<any> {
-  const response = await fetch(`${PRICING_BASE}/price/quote`, {
+export async function listSeats(tripId: number): Promise<Seat[]> {
+  const response = await fetch(`${API_BASE}/trips/${tripId}/seats`)
+  if (!response.ok) {
+    throw new Error('Erreur lors du chargement des sièges')
+  }
+  return response.json()
+}
+
+export async function quotePrice(request: { trip_id: number; seat_no?: string; passengers?: number }): Promise<any> {
+  const response = await fetch(`${API_BASE}/price/quote`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -115,15 +123,21 @@ export async function createBooking(booking: BookingRequest): Promise<BookingRes
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${PRICING_BASE}/booking`, {
+  const response = await fetch(`${API_BASE}/booking`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(booking),
+    body: JSON.stringify({
+      trip_id: booking.trip_id,
+      passengers: 1,
+      passenger_name: booking.passenger_name,
+      passenger_email: booking.passenger_email,
+      idempotency_key: `ui-${Date.now()}`,
+    }),
   })
   
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.detail || 'Erreur lors de la création de la réservation')
+    throw new Error(errorData.error || errorData.detail || 'Erreur lors de la création de la réservation')
   }
   
   return response.json()
