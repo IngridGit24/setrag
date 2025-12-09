@@ -174,7 +174,28 @@ class PaymentController extends Controller
                 'payment_method' => $request->payment_method,
             ]);
 
-            // Create EBILLING payment
+            // Vérifier si on est en mode simulation (localhost ou credentials non configurés)
+            $isSimulationMode = $this->shouldUseSimulation();
+
+            if ($isSimulationMode) {
+                // Mode simulation : rediriger vers la page de simulation appropriée
+                session(['pending_booking_simulation' => [
+                    'booking_id' => $booking->id,
+                    'pnr' => $pnr,
+                ]]);
+                session()->forget('pending_booking');
+
+                // Rediriger vers la page de simulation selon la méthode choisie
+                $paymentMethod = $request->payment_method;
+                return match($paymentMethod) {
+                    'airtel' => redirect()->route('payment.simulation.airtel', ['booking_id' => $booking->id]),
+                    'moov' => redirect()->route('payment.simulation.moov', ['booking_id' => $booking->id]),
+                    'card' => redirect()->route('payment.simulation.card', ['booking_id' => $booking->id]),
+                    default => redirect()->route('payment.simulation.card', ['booking_id' => $booking->id]),
+                };
+            }
+
+            // Mode production : utiliser EBILLING
             $ebillingData = [
                 'amount' => $quote['total_price'],
                 'customer' => [
@@ -200,7 +221,15 @@ class PaymentController extends Controller
                 $seat->save();
                 $booking->delete();
 
-                return back()->with('error', 'Erreur lors de l\'initialisation du paiement: ' . ($ebillingResult['error'] ?? 'Erreur inconnue'));
+                $errorMessage = $ebillingResult['error'] ?? 'Erreur inconnue lors de l\'initialisation du paiement';
+                
+                // Si c'est un problème de configuration, afficher un message plus détaillé
+                if (str_contains($errorMessage, 'Configuration EBILLING incomplète') || 
+                    str_contains($errorMessage, 'Identifiants EBILLING invalides')) {
+                    return back()->with('error', $errorMessage . '. Contactez l\'administrateur pour plus d\'informations.');
+                }
+
+                return back()->with('error', $errorMessage);
             }
 
             // Save bill_id to booking
@@ -356,7 +385,29 @@ class PaymentController extends Controller
             session()->forget('pending_ebilling_payment');
         }
 
-        return view('payment.failed');
+            return view('payment.failed');
+    }
+
+    /**
+     * Détermine si on doit utiliser le mode simulation
+     */
+    private function shouldUseSimulation(): bool
+    {
+        // Mode simulation si :
+        // 1. On est sur localhost
+        // 2. Les credentials EBILLING ne sont pas configurés
+        // 3. Variable d'environnement FORCE_SIMULATION est définie
+        
+        $appUrl = config('app.url');
+        $isLocalhost = str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1');
+        
+        $ebillingUsername = config('ebilling.username');
+        $ebillingSharedKey = config('ebilling.shared_key');
+        $credentialsMissing = empty($ebillingUsername) || empty($ebillingSharedKey);
+        
+        $forceSimulation = env('FORCE_PAYMENT_SIMULATION', false);
+        
+        return $isLocalhost || $credentialsMissing || $forceSimulation;
     }
 }
 

@@ -30,12 +30,28 @@ Route::get('/payment', [PaymentController::class, 'show'])->name('payment');
 Route::post('/payment', [PaymentController::class, 'process'])->name('payment.process');
 Route::get('/payment/success', [PaymentController::class, 'handleSuccess'])->name('payment.success');
 Route::get('/payment/failed', [PaymentController::class, 'handleFailure'])->name('payment.failed');
+
+// Payment simulation routes (for localhost development)
+Route::prefix('payment/simulate')->name('payment.simulation.')->group(function () {
+    Route::get('/airtel', [\App\Http\Controllers\PaymentSimulationController::class, 'showAirtel'])->name('airtel');
+    Route::post('/airtel', [\App\Http\Controllers\PaymentSimulationController::class, 'processAirtel'])->name('airtel.process');
+    Route::get('/moov', [\App\Http\Controllers\PaymentSimulationController::class, 'showMoov'])->name('moov');
+    Route::post('/moov', [\App\Http\Controllers\PaymentSimulationController::class, 'processMoov'])->name('moov.process');
+    Route::get('/card', [\App\Http\Controllers\PaymentSimulationController::class, 'showCard'])->name('card');
+    Route::post('/card', [\App\Http\Controllers\PaymentSimulationController::class, 'processCard'])->name('card.process');
+    Route::get('/success', [\App\Http\Controllers\PaymentSimulationController::class, 'success'])->name('success');
+});
+
 Route::get('/success', [SuccessController::class, 'index'])->name('success');
 
 // Protected routes
 Route::middleware('auth.session')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
+    
+    // Booking routes
+    Route::get('/booking/{booking}', [DashboardController::class, 'show'])->name('booking.show');
+    Route::delete('/booking/{booking}', [DashboardController::class, 'destroy'])->name('booking.destroy');
 });
 
 // Admin routes

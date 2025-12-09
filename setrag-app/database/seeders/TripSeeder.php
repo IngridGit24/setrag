@@ -98,6 +98,7 @@ class TripSeeder extends Seeder
             }
 
             // Voyage retour : Franceville → Owendo (départ le lendemain matin)
+            $nextDay = $currentDate->copy()->addDay();
             if ($nextDay->lte($endDate)) {
                 $departureTime = $nextDay->copy()->setTime($morningDeparture, 0);
                 $arrivalTime = $departureTime->copy()->addHours($durations['Owendo-Franceville']);

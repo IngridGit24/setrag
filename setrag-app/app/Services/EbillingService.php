@@ -18,6 +18,14 @@ class EbillingService
         $this->username = config('ebilling.username');
         $this->sharedKey = config('ebilling.shared_key');
         $this->timeout = config('ebilling.timeout', 30);
+
+        // Vérifier que les credentials sont configurés
+        if (empty($this->username) || empty($this->sharedKey)) {
+            Log::warning('EBILLING: Credentials non configurés', [
+                'username_set' => !empty($this->username),
+                'shared_key_set' => !empty($this->sharedKey),
+            ]);
+        }
     }
 
     /**
@@ -26,6 +34,19 @@ class EbillingService
     public function createPayment(array $paymentData): array
     {
         try {
+            // Vérifier que les credentials sont configurés
+            if (empty($this->username) || empty($this->sharedKey)) {
+                Log::error('EBILLING: Credentials manquants', [
+                    'username' => $this->username ? 'défini' : 'manquant',
+                    'shared_key' => $this->sharedKey ? 'défini' : 'manquant',
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => 'Configuration EBILLING incomplète. Veuillez configurer EBILLING_USERNAME et EBILLING_SHARED_KEY dans le fichier .env',
+                ];
+            }
+
             // Préparer le payload au format EBILLING
             $payload = [
                 'payer_name' => $paymentData['customer']['name'],
@@ -34,36 +55,66 @@ class EbillingService
                 'amount' => (float) $paymentData['amount'],
                 'short_description' => $paymentData['description'] ?? 'Réservation billet SETRAG',
                 'external_reference' => $paymentData['reference'],
-                'expiry_period' => config('ebilling.expiry_period', 60),
+                'expiry_period' => (int) config('ebilling.expiry_period', 60),
                 'callback_url' => config('ebilling.callback_url'),
                 'redirect_url' => config('ebilling.redirect_url_success'),
             ];
 
-            // Ajouter les métadonnées si disponibles
+            // Ajouter les métadonnées si disponibles (format string JSON)
             if (isset($paymentData['metadata'])) {
                 $payload['metadata'] = json_encode($paymentData['metadata']);
+            }
+
+            // S'assurer que payer_msisdn n'est pas vide (requis par EBILLING)
+            if (empty($payload['payer_msisdn'])) {
+                // Utiliser un numéro par défaut si non fourni (format Gabon)
+                $payload['payer_msisdn'] = '241076000000';
             }
 
             Log::info('EBILLING: Création de paiement', [
                 'reference' => $paymentData['reference'],
                 'amount' => $paymentData['amount'],
+                'payload' => $payload,
             ]);
 
-            // Envoyer la requête à EBILLING
+            // Envoyer la requête à EBILLING avec les bons headers
             $response = Http::timeout($this->timeout)
                 ->withBasicAuth($this->username, $this->sharedKey)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
                 ->post("{$this->baseUrl}/api/v1/merchant/e_bills", $payload);
 
             if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = $errorBody['message'] ?? $errorBody['error'] ?? 'Erreur inconnue';
+                $responseBody = $response->body();
+                
                 Log::error('EBILLING: Erreur lors de la création du paiement', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'error' => $errorMessage,
+                    'body' => $responseBody,
+                    'base_url' => $this->baseUrl,
+                    'username' => $this->username,
+                    'endpoint' => "{$this->baseUrl}/api/v1/merchant/e_bills",
+                    'payload' => $payload,
                 ]);
+
+                // Messages d'erreur plus explicites selon le code HTTP
+                $userFriendlyMessage = match($response->status()) {
+                    401 => 'Identifiants EBILLING invalides. Veuillez vérifier EBILLING_USERNAME et EBILLING_SHARED_KEY dans le fichier .env',
+                    404 => 'Endpoint EBILLING introuvable. Vérifiez EBILLING_BASE_URL',
+                    406 => 'Format de requête non accepté par EBILLING. Vérifiez les logs pour plus de détails.',
+                    500 => 'Erreur serveur EBILLING. Veuillez réessayer plus tard',
+                    default => 'Erreur lors de la création du paiement EBILLING: ' . ($errorMessage ?: 'Code HTTP ' . $response->status()),
+                };
 
                 return [
                     'success' => false,
-                    'error' => 'Erreur lors de la création du paiement EBILLING',
-                    'details' => $response->json(),
+                    'error' => $userFriendlyMessage,
+                    'details' => $errorBody,
+                    'http_status' => $response->status(),
                 ];
             }
 

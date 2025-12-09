@@ -204,6 +204,39 @@
     </footer>
 
     @stack('scripts')
+
+    <!-- Bouton "Retour en haut" -->
+    <button id="goToTopBtn" 
+            class="fixed bottom-8 right-8 bg-setrag-primary hover:bg-setrag-primary-dark text-white p-4 rounded-full shadow-lg transition-all duration-300 opacity-0 invisible z-40 group"
+            aria-label="Retour en haut">
+        <svg class="w-6 h-6 transform group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        </svg>
+    </button>
+
+    <script>
+        // Gestion du bouton "Retour en haut"
+        const goToTopBtn = document.getElementById('goToTopBtn');
+        
+        // Afficher/masquer le bouton selon la position du scroll
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                goToTopBtn.classList.remove('opacity-0', 'invisible');
+                goToTopBtn.classList.add('opacity-100', 'visible');
+            } else {
+                goToTopBtn.classList.remove('opacity-100', 'visible');
+                goToTopBtn.classList.add('opacity-0', 'invisible');
+            }
+        });
+        
+        // Scroll vers le haut au clic
+        goToTopBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    </script>
 </body>
 </html>
 

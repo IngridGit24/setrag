@@ -106,10 +106,22 @@
                                         @endif
                                     </div>
                                 </div>
-                                <div class="mt-4 pt-4 border-t border-gray-200">
+                                <div class="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
                                     <p class="text-xs text-gray-500">
                                         Réservation créée le {{ $booking->created_at->format('d/m/Y à H:i') }}
                                     </p>
+                                    <div class="flex space-x-2">
+                                        <a href="{{ route('booking.show', $booking) }}" class="btn-secondary text-sm px-4 py-2">
+                                            Voir détails
+                                        </a>
+                                        @if($booking->status !== 'CONFIRMED')
+                                            <button type="button" 
+                                                    onclick="openDeleteModal({{ $booking->id }}, '{{ $booking->pnr }}')" 
+                                                    class="btn-danger text-sm px-4 py-2">
+                                                Supprimer
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -128,5 +140,82 @@
         @endif
     </div>
 </div>
+
+<!-- Modal de confirmation de suppression -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full transform transition-all">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Confirmer la suppression</h3>
+            <p class="text-gray-600 text-center mb-1">
+                Êtes-vous sûr de vouloir supprimer la réservation
+            </p>
+            <p class="text-gray-900 font-semibold text-center mb-6" id="modalPnr">
+                PNR: <span class="text-setrag-primary"></span>
+            </p>
+            <p class="text-sm text-red-600 text-center mb-6">
+                Cette action est irréversible. Le siège sera libéré.
+            </p>
+            <div class="flex space-x-3">
+                <button type="button" 
+                        onclick="closeDeleteModal()" 
+                        class="flex-1 btn-secondary">
+                    Annuler
+                </button>
+                <form id="deleteForm" method="POST" class="flex-1">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="w-full btn-danger">
+                        Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function openDeleteModal(bookingId, pnr) {
+    const modal = document.getElementById('deleteModal');
+    const form = document.getElementById('deleteForm');
+    const pnrSpan = document.querySelector('#modalPnr span');
+    
+    // Mettre à jour le formulaire avec l'URL de suppression
+    form.action = `/booking/${bookingId}`;
+    
+    // Mettre à jour le PNR affiché
+    pnrSpan.textContent = pnr;
+    
+    // Afficher le modal
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // Empêcher le scroll
+}
+
+function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = ''; // Réactiver le scroll
+}
+
+// Fermer le modal en cliquant en dehors
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+
+// Fermer le modal avec la touche Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeleteModal();
+    }
+});
+</script>
+@endpush
 @endsection
 
